@@ -8,13 +8,14 @@ export default [
       'dist/**',
       'node_modules/**',
       'coverage/**',
-      'python/**'
+      'python/**',
+      'dist-site/**'
     ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended.map((config) => ({
     ...config,
-    files: [ 'src/**/*.ts' ]
+    files: [ 'src/**/*.ts', 'site/**/*.ts' ]
   })),
   {
     languageOptions: {

@@ -32,6 +32,7 @@
     "test:watch": "vitest",
     "build": "vite build && tsc -p tsconfig.build.json",
     "build:python": "node scripts/build-python-package.mjs",
+    "build:site": "vite build --config site/vite.config.js",
     "all": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

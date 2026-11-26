@@ -138,6 +138,15 @@ The TypeScript types of the contract are served under
 ([.github/workflows/publish.yml](./.github/workflows/publish.yml),
 PyPI trusted publishing); see the [CHANGELOG](./CHANGELOG.md).
 
+## Demonstration
+
+A static demonstration host (neutral domain: processing an online order)
+lives in [site/](./site) and is published on GitHub Pages at
+<https://gaelgael5.github.io/urban-bpmn/> on every push to `main` and
+every version tag: sample process, import of a file produced by another
+tool, demo toolbox with drop / action / attach delegates, read-only and
+palette toggles, live XML view, SVG download.
+
 ## Development
 
 ```bash
