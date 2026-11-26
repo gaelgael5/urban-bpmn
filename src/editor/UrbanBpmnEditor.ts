@@ -22,8 +22,11 @@ import AtelierPaletteModule from '../palette/AtelierPaletteModule.ts';
 
 import { PropertyPanel } from '../properties/PropertyPanel.ts';
 
+import { Toolbox, type ArmedTool } from '../toolbox/Toolbox.ts';
+
 import type {
   Avertissement,
+  CollaborationMembre,
   Delegates,
   DropResult,
   EditorOptions,
@@ -77,6 +80,10 @@ export class UrbanBpmnEditor {
   private _banner: HTMLElement | null = null;
   private _canvasHost: HTMLElement;
   private _panel: PropertyPanel | null = null;
+  private _toolbox: Toolbox | null = null;
+  private _toolboxHost: HTMLElement | null = null;
+  private _armedTool: ArmedTool | null = null;
+  private _placing = false;
 
   constructor(options: EditorOptions) {
     this._container = options.container;
@@ -88,10 +95,38 @@ export class UrbanBpmnEditor {
     this._container.classList.add('ub-editeur');
     this._container.style.display = 'flex';
 
+    if (!this._readOnly) {
+      this._toolboxHost = document.createElement('div');
+      this._toolboxHost.className = 'ub-toolbox-colonne';
+      this._toolboxHost.style.cssText = [
+        'flex: 0 0 200px',
+        'box-sizing: border-box',
+        'padding: 10px',
+        'border-right: 1px solid #ddd',
+        'overflow: auto',
+        'font: 13px/1.4 system-ui, sans-serif',
+        'display: none'
+      ].join(';');
+      this._container.appendChild(this._toolboxHost);
+
+      this._toolbox = new Toolbox({
+        container: this._toolboxHost,
+        onArm: (tool) => {
+          this._armedTool = tool;
+        }
+      });
+    }
+
     this._canvasHost = document.createElement('div');
     this._canvasHost.className = 'ub-canvas';
-    this._canvasHost.style.cssText = 'flex: 1 1 auto; min-width: 0; height: 100%';
+    this._canvasHost.style.cssText = 'flex: 1 1 auto; min-width: 0; height: 100%; position: relative';
     this._container.appendChild(this._canvasHost);
+
+    if (!this._readOnly) {
+      this._canvasHost.addEventListener('click', (event) => {
+        void this._onCanvasClick(event);
+      });
+    }
 
     const ViewerClass: any = this._readOnly ? NavigatedViewer : Modeler;
 
@@ -159,6 +194,8 @@ export class UrbanBpmnEditor {
 
   set delegates(delegates: Delegates) {
     this._delegates = delegates || {};
+
+    void this._refreshToolbox();
   }
 
   get readOnly(): boolean {
@@ -221,6 +258,8 @@ export class UrbanBpmnEditor {
 
       this._emit('import.done', { warnings });
 
+      await this._refreshToolbox();
+
       return { warnings };
     } finally {
       this._importing = false;
@@ -267,7 +306,7 @@ export class UrbanBpmnEditor {
 
     const result = await drop(cle);
 
-    this._place(cle, result, position || this._viewportCenter());
+    await this._place(cle, result, position || this._viewportCenter());
 
     if (result.avertissement) {
       this._showAvertissement(cle, result.avertissement);
@@ -292,6 +331,10 @@ export class UrbanBpmnEditor {
     this._listeners.clear();
     this._panel?.destroy();
     this._panel = null;
+    this._toolbox?.destroy();
+    this._toolbox = null;
+    this._toolboxHost?.remove();
+    this._toolboxHost = null;
     this._viewer.destroy();
     this._canvasHost.remove();
   }
@@ -338,30 +381,26 @@ export class UrbanBpmnEditor {
     }
   }
 
-  private _place(cle: string, result: DropResult, position: Point): void {
+  private async _place(cle: string, result: DropResult, position: Point): Promise<void> {
     switch (result.genre) {
 
       case 'participant':
+
+        // a host object placed as a pool is a black box: no process,
+        // it can be detailed later
         this._createParticipant(
           { cle, nom: result.nom, type: result.type },
-          position
+          position,
+          { boiteNoire: true }
         );
         break;
 
-      case 'collaboration': {
-        const membres = result.membres || [];
-
-        membres.forEach((membre, index) => {
-          this._createParticipant(membre, {
-            x: position.x,
-            y: position.y + index * 180
-          });
-        });
+      case 'collaboration':
+        await this._poseCollaboration(cle, result, position);
         break;
-      }
 
       case 'couloir':
-        this._createLane(cle, result);
+        this._createLane(cle, result, position);
         break;
 
       case 'objet-donnees':
@@ -377,32 +416,130 @@ export class UrbanBpmnEditor {
     }
   }
 
-  private _createParticipant(ref: ReferencedObject, position: Point): void {
+  /**
+   * Attaches the diagram's collaboration to the key (one per file —
+   * replacing an existing attachment asks for confirmation), after
+   * proposing the host's member list: already-placed members are
+   * skipped, checked ones are created as if dropped one by one.
+   */
+  private async _poseCollaboration(
+    cle: string,
+    result: DropResult,
+    position: Point
+  ): Promise<void> {
+    const canvas = this._viewer.get('canvas');
+
+    // replacement of an existing attachment: ask first
+    const rootBo = canvas.getRootElement().businessObject;
+
+    if (rootBo && rootBo.$type === 'bpmn:Collaboration') {
+      const existing = rootBo.get('urban:cle');
+
+      if (existing && existing !== cle) {
+        const ok = await this._confirm(
+          `La collaboration est déjà rattachée à « ${ existing } ». ` +
+          `Remplacer par « ${ cle } » ?`
+        );
+
+        if (!ok) {
+          return;
+        }
+      }
+    }
+
+    // members not placed yet, chosen by the person
+    const candidats = (result.membres || []).filter(
+      (membre) => membre.genre !== 'collaboration' && !this._hasKey(membre.cle)
+    );
+
+    let retenus: CollaborationMembre[] = [];
+
+    if (candidats.length) {
+      const choix = await this._chooseMembres(candidats);
+
+      if (choix === null) {
+        return;
+      }
+
+      retenus = choix;
+    }
+
+    let pos = { ...position };
+
+    for (const membre of retenus) {
+      await this._place(
+        membre.cle,
+        { nom: membre.nom, type: membre.type, genre: membre.genre },
+        pos
+      );
+
+      pos = { x: pos.x, y: pos.y + 200 };
+    }
+
+    // attach the collaboration itself
+    const newRootBo = this._viewer.get('canvas').getRootElement().businessObject;
+
+    if (!newRootBo || newRootBo.$type !== 'bpmn:Collaboration') {
+      throw new Error('aucune collaboration dans le diagramme : posez d\'abord un participant');
+    }
+
+    newRootBo.set('urban:cle', cle);
+
+    if (result.type) {
+      newRootBo.set('urban:type', result.type);
+    }
+
+    this._emit('changed', { scope: 'model' });
+  }
+
+  private _createParticipant(
+    ref: ReferencedObject,
+    position: Point,
+    options: { boiteNoire?: boolean } = {}
+  ): any {
     const bpmnFactory = this._viewer.get('bpmnFactory');
     const elementFactory = this._viewer.get('elementFactory');
     const modeling = this._viewer.get('modeling');
     const canvas = this._viewer.get('canvas');
 
+    if (options.boiteNoire &&
+        canvas.getRootElement().businessObject.$type === 'bpmn:Process') {
+
+      // the first participant created on a process diagram absorbs the
+      // existing process (bpmn-js wrap behavior); give that process its
+      // own pool first, so the host pool stays a black box
+      const wrapper = elementFactory.createParticipantShape({});
+
+      modeling.createShape(wrapper, this._viewportCenter(), canvas.getRootElement());
+    }
+
     const bo = bpmnFactory.create('bpmn:Participant', { name: ref.nom });
-    bo.set('urban:cle', ref.cle);
+
+    if (ref.cle) {
+      bo.set('urban:cle', ref.cle);
+    }
 
     if (ref.type) {
       bo.set('urban:type', ref.type);
     }
 
-    const shape = elementFactory.createParticipantShape({ businessObject: bo });
+    const shape = elementFactory.createParticipantShape({
+      businessObject: bo,
+      isExpanded: !options.boiteNoire
+    });
 
-    modeling.createShape(shape, position, canvas.getRootElement());
+    return modeling.createShape(shape, position, canvas.getRootElement());
   }
 
-  private _createLane(cle: string, result: DropResult): void {
+  private _createLane(cle: string, result: DropResult, position: Point): void {
     const modeling = this._viewer.get('modeling');
     const eventBus = this._viewer.get('eventBus');
 
-    const participant = this._firstParticipant();
+    // dropped into a participant; without one, a participant is created
+    let participant = this._firstParticipant();
 
     if (!participant) {
-      throw new Error('aucun participant : impossible de créer un couloir');
+      participant = this._createParticipant({ cle: '', nom: '' }, position);
     }
 
     const lane = modeling.addLane(participant, 'bottom');
@@ -460,6 +597,216 @@ export class UrbanBpmnEditor {
         element.businessObject.$type === 'bpmn:Participant' &&
         !element.labelTarget
     )[0] || null;
+  }
+
+  private _hasKey(cle: string): boolean {
+    return this._viewer.get('elementRegistry').getAll().some((element: any) => {
+      const bo = element.businessObject;
+
+      return bo && bo.get && bo.get('urban:cle') === cle;
+    });
+  }
+
+  /** Fills the toolbox from the host delegate; hides it without one. */
+  private async _refreshToolbox(): Promise<void> {
+    if (!this._toolbox || !this._toolboxHost) {
+      return;
+    }
+
+    const toolbox = this._delegates.toolbox;
+
+    if (!toolbox) {
+      this._toolboxHost.style.display = 'none';
+      return;
+    }
+
+    try {
+      const groups = await toolbox({ palette: this._palette });
+
+      this._toolbox.setGroups(groups || []);
+      this._toolboxHost.style.display = '';
+    } catch (error: any) {
+      this._toolboxHost.style.display = '';
+      this._toolbox.showError(String(error?.message || error));
+    }
+  }
+
+  /** Places the armed tool where the diagram was clicked. */
+  private async _onCanvasClick(event: MouseEvent): Promise<void> {
+    const armed = this._armedTool;
+
+    if (!armed || !armed.cle || this._placing) {
+      return;
+    }
+
+    // only clicks on the diagram surface, not on the bpmn-js palette
+    if (!(event.target instanceof Element) ||
+        !event.target.closest('.djs-container') ||
+        event.target.closest('.djs-palette')) {
+      return;
+    }
+
+    this._placing = true;
+    this._toolbox?.setBusy(true);
+
+    try {
+      await this.drop(armed.cle, this._positionFromEvent(event));
+      this._toolbox?.setBusy(false);
+    } catch (error: any) {
+
+      // host error: nothing is placed, the message is displayed
+      this._toolbox?.setBusy(false);
+      this._toolbox?.showError(String(error?.message || error));
+    } finally {
+      this._placing = false;
+      this._toolbox?.disarm();
+      this._armedTool = null;
+    }
+  }
+
+  private _positionFromEvent(event: MouseEvent): Point {
+    const canvas = this._viewer.get('canvas');
+    const rect = this._canvasHost.getBoundingClientRect();
+    const viewbox = canvas.viewbox();
+
+    return {
+      x: viewbox.x + (event.clientX - rect.left) / viewbox.scale,
+      y: viewbox.y + (event.clientY - rect.top) / viewbox.scale
+    };
+  }
+
+  /** Non-blocking in-component confirmation dialog. */
+  private _confirm(message: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const { root, close } = this._openDialog();
+
+      const text = document.createElement('p');
+      text.className = 'ub-dialogue-message';
+      text.style.margin = '0 0 10px';
+      text.textContent = message;
+      root.appendChild(text);
+
+      const buttons = document.createElement('div');
+      buttons.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end';
+
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'ub-dialogue-annuler';
+      cancel.textContent = 'Annuler';
+      cancel.addEventListener('click', () => {
+        close();
+        resolve(false);
+      }, { once: true });
+
+      const confirm = document.createElement('button');
+      confirm.type = 'button';
+      confirm.className = 'ub-dialogue-confirmer';
+      confirm.textContent = 'Remplacer';
+      confirm.addEventListener('click', () => {
+        close();
+        resolve(true);
+      }, { once: true });
+
+      buttons.appendChild(cancel);
+      buttons.appendChild(confirm);
+      root.appendChild(buttons);
+    });
+  }
+
+  /** Member picker for a collaboration drop; null when cancelled. */
+  private _chooseMembres(
+    membres: CollaborationMembre[]
+  ): Promise<CollaborationMembre[] | null> {
+    return new Promise((resolve) => {
+      const { root, close } = this._openDialog();
+
+      const title = document.createElement('p');
+      title.style.margin = '0 0 10px';
+      title.textContent = 'Membres à poser :';
+      root.appendChild(title);
+
+      const boxes: [ HTMLInputElement, CollaborationMembre ][] = [];
+
+      for (const membre of membres) {
+        const line = document.createElement('label');
+        line.className = 'ub-membre';
+        line.style.cssText = 'display: flex; gap: 6px; align-items: center; margin-bottom: 6px';
+
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = true;
+        box.dataset.cle = membre.cle;
+
+        const label = document.createElement('span');
+        label.textContent = membre.nom;
+
+        line.appendChild(box);
+        line.appendChild(label);
+        root.appendChild(line);
+
+        boxes.push([ box, membre ]);
+      }
+
+      const buttons = document.createElement('div');
+      buttons.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px';
+
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'ub-membres-annuler';
+      cancel.textContent = 'Annuler';
+      cancel.addEventListener('click', () => {
+        close();
+        resolve(null);
+      }, { once: true });
+
+      const place = document.createElement('button');
+      place.type = 'button';
+      place.className = 'ub-membres-poser';
+      place.textContent = 'Poser';
+      place.addEventListener('click', () => {
+        close();
+        resolve(boxes.filter(([ box ]) => box.checked).map(([ , membre ]) => membre));
+      }, { once: true });
+
+      buttons.appendChild(cancel);
+      buttons.appendChild(place);
+      root.appendChild(buttons);
+    });
+  }
+
+  private _openDialog(): { root: HTMLElement, close: () => void } {
+    const veil = document.createElement('div');
+    veil.className = 'ub-dialogue-voile';
+    veil.style.cssText = [
+      'position: absolute',
+      'inset: 0',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'background: rgba(0, 0, 0, 0.25)',
+      'z-index: 20'
+    ].join(';');
+
+    const root = document.createElement('div');
+    root.className = 'ub-dialogue';
+    root.style.cssText = [
+      'background: #fff',
+      'border-radius: 6px',
+      'padding: 14px',
+      'max-width: 360px',
+      'box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25)',
+      'font: 13px/1.4 system-ui, sans-serif'
+    ].join(';');
+
+    veil.appendChild(root);
+
+    if (!this._container.style.position) {
+      this._container.style.position = 'relative';
+    }
+
+    this._container.appendChild(veil);
+
+    return { root, close: () => veil.remove() };
   }
 
   private _viewportCenter(): Point {

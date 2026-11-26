@@ -64,6 +64,18 @@ delegate disables the interaction):
 | `action(cle, action)` | once when the person clicks a warning's action | — |
 | `attach(context)` | to attach an existing element to a host object | `ReferencedObject` or `null` |
 
+The **host toolbox** renders next to the workshop palette as soon as the
+`toolbox` delegate is provided: groups in the host's order, each tool with
+its label, icon and key, plus a search box. Arming a tool then clicking
+the canvas calls the `drop` delegate once with the key and creates the
+element the host asked for, attached to the key: a `participant` is a
+black-box pool (it can be detailed later), a `couloir` lands in a
+participant (one is created when missing), a `collaboration` attaches the
+diagram's collaboration to the key (one per file; replacing asks for
+confirmation) and proposes the host's member list as checkboxes, skipping
+already-placed members. A host error places nothing and shows the
+message.
+
 **Outputs.**
 `save()` returns the current process as standard BPMN 2.0 XML (references
 included); `exportSvg()` returns an SVG image. Events (`on` / `off`):

@@ -139,6 +139,16 @@ export interface Avertissement {
   };
 }
 
+/**
+ * A member the host proposes with a collaboration: a host object plus
+ * the kind of BPMN element to create for it.
+ */
+export interface CollaborationMembre extends ReferencedObject {
+
+  /** Kind of BPMN element to create for this member. */
+  genre: DropGenre;
+}
+
 /** What the host returns when a tool is dropped. */
 export interface DropResult {
 
@@ -152,10 +162,11 @@ export interface DropResult {
   genre: DropGenre;
 
   /**
-   * Members to propose when `genre` is `'collaboration'`: one
-   * participant is created per member.
+   * Members to propose when `genre` is `'collaboration'`: the
+   * component shows them as checkboxes (already-placed members are
+   * skipped) and creates the checked ones as if dropped one by one.
    */
-  membres?: ReferencedObject[];
+  membres?: CollaborationMembre[];
 
   /** Warning displayed by the component, with an optional action. */
   avertissement?: Avertissement;
