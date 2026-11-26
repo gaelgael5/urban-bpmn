@@ -68,10 +68,10 @@ export class PropertyPanel {
       'flex: 0 0 240px',
       'box-sizing: border-box',
       'padding: 12px',
-      'border-left: 1px solid #ddd',
+      'border-left: 1px solid var(--ub-bordure, #ddd)',
       'overflow: auto',
-      'font: 13px/1.4 system-ui, sans-serif',
-      'color: #333'
+      'font: 13px/1.4 var(--ub-police, system-ui, sans-serif)',
+      'color: var(--ub-texte, #333)'
     ].join(';');
 
     options.parent.appendChild(this._root);

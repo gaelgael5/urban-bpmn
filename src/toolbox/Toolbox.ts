@@ -117,7 +117,7 @@ export class Toolbox {
     this.clearError();
 
     element.classList.add('ub-outil-arme');
-    element.style.outline = '2px solid #1a73e8';
+    element.style.outline = '2px solid var(--ub-accent, #1a73e8)';
     this._armed = { element, tool };
     this._onArm(tool);
   }

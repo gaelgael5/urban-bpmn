@@ -7,7 +7,8 @@ export default [
     ignores: [
       'dist/**',
       'node_modules/**',
-      'coverage/**'
+      'coverage/**',
+      'python/**'
     ]
   },
   js.configs.recommended,
@@ -25,7 +26,7 @@ export default [
     }
   },
   {
-    files: [ 'test/**', 'vite.config.js', 'vitest.config.js', 'eslint.config.js' ],
+    files: [ 'test/**', 'scripts/**', 'vite.config.js', 'vitest.config.js', 'eslint.config.js' ],
     languageOptions: {
       globals: {
         ...globals.node

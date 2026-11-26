@@ -110,6 +110,34 @@ Both editors must run on the same diagram engine generation:
 Both resolve to **diagram-js major version 15**. When bumping bpmn-js here,
 check that the diagram-js major version still matches urban-archimate.
 
+## Web component and Python package
+
+The component ships as the `<urban-bpmn>` custom element (shadow DOM:
+styles are isolated from the host page; usable without any framework and
+from React). The theme follows the host through CSS variables:
+`--ub-police` (font), `--ub-texte`, `--ub-fond`, `--ub-bordure`,
+`--ub-accent`.
+
+The built assets are published on **PyPI** (not npm) as the
+`urban-bpmn` Python package, pinned in the host's `pyproject.toml` and
+served from a FastAPI / Starlette application, like `urban-json-editor`:
+
+```python
+import urban_bpmn
+
+urban_bpmn.mount(app, "/api/bpmn")
+```
+
+```html
+<script type="module" src="/api/bpmn/urban-bpmn.js"></script>
+<urban-bpmn style="height: 600px"></urban-bpmn>
+```
+
+The TypeScript types of the contract are served under
+`/api/bpmn/types/`. Publication runs in CI on every `vx.y.z` tag
+([.github/workflows/publish.yml](./.github/workflows/publish.yml),
+PyPI trusted publishing); see the [CHANGELOG](./CHANGELOG.md).
+
 ## Development
 
 ```bash

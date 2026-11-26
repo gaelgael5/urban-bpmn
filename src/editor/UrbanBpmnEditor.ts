@@ -108,9 +108,9 @@ export class UrbanBpmnEditor {
         'flex: 0 0 200px',
         'box-sizing: border-box',
         'padding: 10px',
-        'border-right: 1px solid #ddd',
+        'border-right: 1px solid var(--ub-bordure, #ddd)',
         'overflow: auto',
-        'font: 13px/1.4 system-ui, sans-serif',
+        'font: 13px/1.4 var(--ub-police, system-ui, sans-serif)',
         'display: none'
       ].join(';');
       this._container.appendChild(this._toolboxHost);
@@ -179,6 +179,12 @@ export class UrbanBpmnEditor {
       });
     } else {
       eventBus.on('selection.changed', (event: any) => {
+
+        // an import clears the selection on its way: not a selection
+        if (this._importing) {
+          return;
+        }
+
         const selected = event.newSelection && event.newSelection[0];
 
         this._panel?.setElement(selected || null);
@@ -265,6 +271,9 @@ export class UrbanBpmnEditor {
       this._applyReferences();
       this._refreshIndicators();
       this._viewer.get('canvas').zoom('fit-viewport');
+
+      // a load starts without selection
+      this._panel?.setElement(null);
 
       this._emit('import.done', { warnings });
 
@@ -730,7 +739,7 @@ export class UrbanBpmnEditor {
         'width: 8px',
         'height: 8px',
         'border-radius: 50%',
-        'background: #1a73e8',
+        'background: var(--ub-accent, #1a73e8)',
         'border: 1px solid #fff',
         'box-sizing: border-box'
       ].join(';');

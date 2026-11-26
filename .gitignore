@@ -3,3 +3,7 @@ dist/
 coverage/
 *.local
 __screenshots__/
+__pycache__/
+python/urban_bpmn/static/
+python/dist/
+*.egg-info/
