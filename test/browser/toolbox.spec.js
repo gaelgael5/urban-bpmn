@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { UrbanBpmnEditor } from '../../src/index.ts';
+import { UrbanBpmnEditor, referenceOf } from '../../src/index.ts';
 
 import orderProcessXml from '../fixtures/order-process.bpmn?raw';
 
@@ -13,7 +13,11 @@ const COLLABORATION_XML = `<?xml version="1.0" encoding="UTF-8"?>
                   id="Definitions_collab"
                   targetNamespace="https://github.com/gaelgael5/urban-bpmn/schema/1.0">
   <bpmn:collaboration id="Collaboration_vente">
-    <bpmn:participant id="Participant_acheteur" name="Acheteur" urban:cle="ROL-ACHETEUR" urban:type="role" />
+    <bpmn:participant id="Participant_acheteur" name="Acheteur">
+      <bpmn:extensionElements>
+        <urban:reference cle="ROL-ACHETEUR" type="role" />
+      </bpmn:extensionElements>
+    </bpmn:participant>
   </bpmn:collaboration>
   <bpmndi:BPMNDiagram id="BPMNDiagram_collab">
     <bpmndi:BPMNPlane id="BPMNPlane_collab" bpmnElement="Collaboration_vente">
@@ -57,10 +61,8 @@ function makeContainer() {
 
 function elementWithKey(editor, cle) {
   return editor.getDiagram().get('elementRegistry').filter(
-    (element) => element.businessObject &&
-      element.businessObject.get &&
-      element.businessObject.get('urban:cle') === cle &&
-      !element.labelTarget
+    (element) => !element.labelTarget &&
+      referenceOf(element.businessObject)?.cle === cle
   )[0];
 }
 
@@ -168,7 +170,7 @@ describe('boîte à outils fournie par l\'hôte', () => {
 
     const { xml } = await editor.save();
 
-    expect(xml).toContain('urban:cle="ROL-VENDEUR"');
+    expect(xml).toContain('<urban:reference cle="ROL-VENDEUR"');
   });
 
   it('poser un couloir sans participant crée d\'abord un participant', async () => {
@@ -232,9 +234,15 @@ describe('boîte à outils fournie par l\'hôte', () => {
     expect(vendeur.businessObject.$type).toBe('bpmn:Participant');
 
     // la collaboration elle-même est rattachée, sans forme nouvelle
+    const rootRef = referenceOf(
+      editor.getDiagram().get('canvas').getRootElement().businessObject
+    );
+
+    expect(rootRef?.cle).toBe('COL-VENTE');
+
     const { xml } = await editor.save();
 
-    expect(xml).toMatch(/bpmn:collaboration[^>]*urban:cle="COL-VENTE"/);
+    expect(xml).toContain('<urban:reference cle="COL-VENTE"');
   });
 
   it('reposer une collaboration demande confirmation puis remplace la référence', async () => {
@@ -265,7 +273,7 @@ describe('boîte à outils fournie par l\'hôte', () => {
 
     const { xml } = await editor.save();
 
-    expect(xml).toMatch(/bpmn:collaboration[^>]*urban:cle="COL-REPRISE"/);
+    expect(xml).toContain('<urban:reference cle="COL-REPRISE"');
     expect(xml).not.toContain('COL-VENTE');
   });
 

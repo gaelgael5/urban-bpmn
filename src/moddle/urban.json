@@ -7,8 +7,8 @@
   },
   "types": [
     {
-      "name": "UrbanBound",
-      "extends": [ "bpmn:BaseElement" ],
+      "name": "Reference",
+      "superClass": [ "Element" ],
       "properties": [
         {
           "name": "cle",

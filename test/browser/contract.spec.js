@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { BpmnModdle } from 'bpmn-moddle';
 
-import { UrbanBpmnEditor } from '../../src/index.ts';
+import { UrbanBpmnEditor, referenceOf } from '../../src/index.ts';
 
 import orderProcessXml from '../fixtures/order-process.bpmn?raw';
 import bpmnIoComplexXml from '../fixtures/bpmn-io-complex.bpmn?raw';
@@ -16,7 +16,11 @@ const ATTACHED_XML = `<?xml version="1.0" encoding="UTF-8"?>
                   id="Definitions_attache"
                   targetNamespace="https://github.com/gaelgael5/urban-bpmn/schema/1.0">
   <bpmn:process id="Process_attache" isExecutable="false">
-    <bpmn:task id="Task_boutique" name="Ancien nom" urban:cle="APP-BOUTIQUE" urban:type="application" />
+    <bpmn:task id="Task_boutique" name="Ancien nom">
+      <bpmn:extensionElements>
+        <urban:reference cle="APP-BOUTIQUE" type="application" />
+      </bpmn:extensionElements>
+    </bpmn:task>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_attache">
     <bpmndi:BPMNPlane id="BPMNPlane_attache" bpmnElement="Process_attache">
@@ -153,7 +157,7 @@ describe('contrat du composant', () => {
 
     expect(xml).toContain('Boutique en ligne');
     expect(xml).not.toContain('Ancien nom');
-    expect(xml).toContain('urban:cle="APP-BOUTIQUE"');
+    expect(xml).toContain('<urban:reference cle="APP-BOUTIQUE"');
   });
 
   // critère 4
@@ -179,9 +183,7 @@ describe('contrat du composant', () => {
 
     // l'élément créé est rattaché à la clé
     const created = editor.getDiagram().get('elementRegistry').filter(
-      (element) => element.businessObject &&
-        element.businessObject.get &&
-        element.businessObject.get('urban:cle') === 'DS-COMMANDES'
+      (element) => referenceOf(element.businessObject)?.cle === 'DS-COMMANDES'
     );
 
     expect(created.length).toBeGreaterThan(0);

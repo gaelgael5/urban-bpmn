@@ -86,11 +86,19 @@ load; `selection` — `{ cle?, elementId, type }`, cleared as
 **Errors.** An invalid XML is refused (`load` rejects) with the
 bpmn-moddle message; import warnings are returned and emitted to the host.
 
-**References in the XML.** The attachment to host objects travels in two
-extension attributes on the BPMN element, under the namespace
-`https://github.com/gaelgael5/urban-bpmn/schema/1.0` (prefix `urban`):
-`urban:cle` (functional key) and `urban:type` (host type slug). Everything
-else is plain BPMN 2.0.
+**References in the XML.** The attachment to host objects travels inside
+`bpmn:extensionElements`, as an
+`<urban:reference cle="…" type="…" />` element under the namespace
+`https://github.com/gaelgael5/urban-bpmn/schema/1.0` (prefix `urban`) —
+`cle` is the functional key, `type` the host type slug, one reference at
+most per element. Concerned elements: the collaboration, participants,
+lanes, data objects, data stores, tasks, and the process (the key of the
+object the process details). A BPMN tool that does not know the extension
+ignores it without breaking the file; everything else is plain BPMN 2.0.
+Besides dropping a tool (created already attached), an existing element
+is attached through the property panel's "Rattacher…" button — the
+`attach` delegate opens the host's own picker — and a reference can be
+removed; attached elements carry a discreet indicator.
 
 ## Engine alignment with urban-archimate
 

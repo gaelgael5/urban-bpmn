@@ -24,6 +24,12 @@ import { PropertyPanel } from '../properties/PropertyPanel.ts';
 
 import { Toolbox, type ArmedTool } from '../toolbox/Toolbox.ts';
 
+import {
+  extensionWith,
+  referenceOf,
+  setReferenceOn
+} from '../references/reference.ts';
+
 import type {
   Avertissement,
   CollaborationMembre,
@@ -142,7 +148,10 @@ export class UrbanBpmnEditor {
     if (!this._readOnly) {
       this._panel = new PropertyPanel({
         parent: this._container,
-        getViewer: () => this._viewer
+        getViewer: () => this._viewer,
+        canAttach: () => !!this._delegates.attach,
+        onAttach: (elementId) => this.attach(elementId),
+        onDetach: (elementId) => this.detach(elementId)
       });
     }
 
@@ -221,13 +230,13 @@ export class UrbanBpmnEditor {
 
     for (const element of this._viewer.get('elementRegistry').getAll()) {
       const bo = element.businessObject;
-      const cle = bo && bo.get && bo.get('urban:cle');
+      const ref = bo && referenceOf(bo);
 
-      if (cle && !seen.has(cle)) {
-        seen.set(cle, {
-          cle,
+      if (ref && !seen.has(ref.cle)) {
+        seen.set(ref.cle, {
+          cle: ref.cle,
           nom: bo.name || '',
-          type: bo.get('urban:type') || undefined
+          type: ref.type
         });
       }
     }
@@ -254,6 +263,7 @@ export class UrbanBpmnEditor {
       const { warnings } = await this._viewer.importXML(effective);
 
       this._applyReferences();
+      this._refreshIndicators();
       this._viewer.get('canvas').zoom('fit-viewport');
 
       this._emit('import.done', { warnings });
@@ -308,9 +318,85 @@ export class UrbanBpmnEditor {
 
     await this._place(cle, result, position || this._viewportCenter());
 
+    this._refreshIndicators();
+
     if (result.avertissement) {
       this._showAvertissement(cle, result.avertissement);
     }
+  }
+
+  /**
+   * Attaches an existing element (or, with `null`, the diagram root —
+   * the collaboration, or the process it details) to a host object:
+   * calls the attach delegate, which opens the host's own picker and
+   * returns the chosen object, or `null` when the person cancelled.
+   * The element takes the object's name; a collaboration already
+   * attached is refused (remove the reference first, or drop the
+   * collaboration tool again to replace it with confirmation).
+   */
+  async attach(elementId: string | null = null): Promise<ReferencedObject | null> {
+    if (this._readOnly) {
+      throw new Error('lecture seule : rattachement impossible');
+    }
+
+    const attach = this._delegates.attach;
+
+    if (!attach) {
+      throw new Error('délégué de rattachement non fourni');
+    }
+
+    const element = this._elementOrRoot(elementId);
+    const bo = element.businessObject;
+    const current = referenceOf(bo);
+
+    if (bo.$type === 'bpmn:Collaboration' && current) {
+      throw new Error(
+        `la collaboration est déjà rattachée à « ${ current.cle } » : ` +
+        'retirez d\'abord la référence'
+      );
+    }
+
+    const ref = await attach({
+      elementId: element.id,
+      type: bo.$type,
+      cle: current?.cle
+    });
+
+    if (!ref) {
+      return null;
+    }
+
+    this._viewer.get('modeling').updateProperties(element, {
+      name: ref.nom,
+      extensionElements: extensionWith(
+        bo,
+        { cle: ref.cle, type: ref.type },
+        this._viewer.get('bpmnFactory')
+      )
+    });
+
+    this._refreshIndicators();
+
+    return ref;
+  }
+
+  /** Removes the reference of an element (or of the diagram root). */
+  detach(elementId: string | null = null): void {
+    if (this._readOnly) {
+      throw new Error('lecture seule : rattachement impossible');
+    }
+
+    const element = this._elementOrRoot(elementId);
+
+    this._viewer.get('modeling').updateProperties(element, {
+      extensionElements: extensionWith(
+        element.businessObject,
+        null,
+        this._viewer.get('bpmnFactory')
+      )
+    });
+
+    this._refreshIndicators();
   }
 
   on(event: string, listener: Listener): void {
@@ -359,13 +445,13 @@ export class UrbanBpmnEditor {
 
     for (const element of this._viewer.get('elementRegistry').getAll()) {
       const bo = element.businessObject;
-      const cle = bo && bo.get && bo.get('urban:cle');
+      const reference = bo && referenceOf(bo);
 
-      if (!cle) {
+      if (!reference) {
         continue;
       }
 
-      const ref = this._references.get(cle);
+      const ref = this._references.get(reference.cle);
 
       if (!ref || bo.name === ref.nom) {
         continue;
@@ -433,11 +519,11 @@ export class UrbanBpmnEditor {
     const rootBo = canvas.getRootElement().businessObject;
 
     if (rootBo && rootBo.$type === 'bpmn:Collaboration') {
-      const existing = rootBo.get('urban:cle');
+      const existing = referenceOf(rootBo);
 
-      if (existing && existing !== cle) {
+      if (existing && existing.cle !== cle) {
         const ok = await this._confirm(
-          `La collaboration est déjà rattachée à « ${ existing } ». ` +
+          `La collaboration est déjà rattachée à « ${ existing.cle } ». ` +
           `Remplacer par « ${ cle } » ?`
         );
 
@@ -477,19 +563,21 @@ export class UrbanBpmnEditor {
     }
 
     // attach the collaboration itself
-    const newRootBo = this._viewer.get('canvas').getRootElement().businessObject;
+    const newRoot = this._viewer.get('canvas').getRootElement();
+    const newRootBo = newRoot.businessObject;
 
     if (!newRootBo || newRootBo.$type !== 'bpmn:Collaboration') {
       throw new Error('aucune collaboration dans le diagramme : posez d\'abord un participant');
     }
 
-    newRootBo.set('urban:cle', cle);
-
-    if (result.type) {
-      newRootBo.set('urban:type', result.type);
-    }
-
-    this._emit('changed', { scope: 'model' });
+    this._viewer.get('modeling').updateProperties(newRoot, {
+      name: result.nom,
+      extensionElements: extensionWith(
+        newRootBo,
+        { cle, type: result.type },
+        this._viewer.get('bpmnFactory')
+      )
+    });
   }
 
   private _createParticipant(
@@ -516,11 +604,7 @@ export class UrbanBpmnEditor {
     const bo = bpmnFactory.create('bpmn:Participant', { name: ref.nom });
 
     if (ref.cle) {
-      bo.set('urban:cle', ref.cle);
-    }
-
-    if (ref.type) {
-      bo.set('urban:type', ref.type);
+      setReferenceOn(bo, { cle: ref.cle, type: ref.type }, bpmnFactory);
     }
 
     const shape = elementFactory.createParticipantShape({
@@ -548,11 +632,8 @@ export class UrbanBpmnEditor {
     // a single modification (one command, one 'changed' event)
     const bo = lane.businessObject;
     bo.name = result.nom;
-    bo.set('urban:cle', cle);
 
-    if (result.type) {
-      bo.set('urban:type', result.type);
-    }
+    setReferenceOn(bo, { cle, type: result.type }, this._viewer.get('bpmnFactory'));
 
     eventBus.fire('element.changed', { element: lane });
   }
@@ -569,11 +650,8 @@ export class UrbanBpmnEditor {
     const canvas = this._viewer.get('canvas');
 
     const bo = bpmnFactory.create(type, { name: result.nom });
-    bo.set('urban:cle', cle);
 
-    if (result.type) {
-      bo.set('urban:type', result.type);
-    }
+    setReferenceOn(bo, { cle, type: result.type }, bpmnFactory);
 
     const root = canvas.getRootElement();
     const parent = root.businessObject &&
@@ -602,9 +680,66 @@ export class UrbanBpmnEditor {
   private _hasKey(cle: string): boolean {
     return this._viewer.get('elementRegistry').getAll().some((element: any) => {
       const bo = element.businessObject;
+      const ref = bo && referenceOf(bo);
 
-      return bo && bo.get && bo.get('urban:cle') === cle;
+      return !!ref && ref.cle === cle;
     });
+  }
+
+  private _elementOrRoot(elementId: string | null): any {
+    if (elementId === null) {
+      return this._viewer.get('canvas').getRootElement();
+    }
+
+    const element = this._viewer.get('elementRegistry').get(elementId);
+
+    if (!element) {
+      throw new Error(`élément inconnu : ${ elementId }`);
+    }
+
+    return element;
+  }
+
+  /** A discreet dot on every element attached to a host object. */
+  private _refreshIndicators(): void {
+    const overlays = this._viewer.get('overlays', false);
+
+    if (!overlays) {
+      return;
+    }
+
+    const canvas = this._viewer.get('canvas');
+
+    for (const element of this._viewer.get('elementRegistry').getAll()) {
+      if (element.labelTarget || element === canvas.getRootElement()) {
+        continue;
+      }
+
+      overlays.remove({ element, type: 'ub-reference' });
+
+      const ref = element.businessObject && referenceOf(element.businessObject);
+
+      if (!ref) {
+        continue;
+      }
+
+      const dot = document.createElement('div');
+      dot.className = 'ub-indicateur-reference';
+      dot.title = ref.cle;
+      dot.style.cssText = [
+        'width: 8px',
+        'height: 8px',
+        'border-radius: 50%',
+        'background: #1a73e8',
+        'border: 1px solid #fff',
+        'box-sizing: border-box'
+      ].join(';');
+
+      overlays.add(element, 'ub-reference', {
+        position: { top: -4, left: -4 },
+        html: dot
+      });
+    }
   }
 
   /** Fills the toolbox from the host delegate; hides it without one. */
@@ -894,9 +1029,10 @@ export class UrbanBpmnEditor {
 
   private _emitSelection(element: any): void {
     const bo = element.businessObject;
+    const ref = bo && referenceOf(bo);
 
     this._emit('selection', {
-      cle: (bo && bo.get && bo.get('urban:cle')) || undefined,
+      cle: ref ? ref.cle : undefined,
       elementId: element.id,
       type: bo ? bo.$type : null
     });

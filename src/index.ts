@@ -11,6 +11,9 @@ export * from './contract/types.ts';
 
 export { UrbanBpmnEditor, INITIAL_XML } from './editor/UrbanBpmnEditor.ts';
 
+export { referenceOf } from './references/reference.ts';
+export type { Reference } from './references/reference.ts';
+
 export { BpmnModeler };
 
 export interface CreateModelerOptions {

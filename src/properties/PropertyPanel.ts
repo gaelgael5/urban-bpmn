@@ -7,6 +7,8 @@
  * workshop palette shows.
  */
 
+import { referenceOf } from '../references/reference.ts';
+
 /** The four everyday task types proposed by the panel. */
 const TASK_TYPES: [ string, string ][] = [
   [ 'bpmn:Task', 'Tâche' ],
@@ -34,6 +36,15 @@ export interface PropertyPanelOptions {
 
   /** The bpmn-js instance (services are read lazily). */
   getViewer: () => any;
+
+  /** Whether the host provided the attach delegate. */
+  canAttach: () => boolean;
+
+  /** Attaches an element (null: the diagram root) to a host object. */
+  onAttach: (elementId: string | null) => Promise<unknown>;
+
+  /** Removes the reference of an element (null: the diagram root). */
+  onDetach: (elementId: string | null) => void;
 }
 
 export class PropertyPanel {
@@ -41,9 +52,15 @@ export class PropertyPanel {
   private _root: HTMLElement;
   private _getViewer: () => any;
   private _element: any = null;
+  private _canAttach: PropertyPanelOptions['canAttach'];
+  private _onAttach: PropertyPanelOptions['onAttach'];
+  private _onDetach: PropertyPanelOptions['onDetach'];
 
   constructor(options: PropertyPanelOptions) {
     this._getViewer = options.getViewer;
+    this._canAttach = options.canAttach;
+    this._onAttach = options.onAttach;
+    this._onDetach = options.onDetach;
 
     this._root = document.createElement('div');
     this._root.className = 'ub-proprietes';
@@ -153,6 +170,8 @@ export class PropertyPanel {
 
       this._root.appendChild(this._field('Type de tâche', select));
     }
+
+    this._renderReference(element.id, bo);
   }
 
   private _renderEmpty(): void {
@@ -164,6 +183,94 @@ export class PropertyPanel {
     empty.textContent = 'Aucun élément sélectionné.';
 
     this._root.appendChild(empty);
+
+    // the diagram itself (collaboration, or the process it details)
+    const root = this._rootElement();
+
+    if (root && root.businessObject) {
+      this._root.appendChild(this._title('Diagramme'));
+      this._renderReference(null, root.businessObject);
+    }
+  }
+
+  /** The reference block: current key, attach and detach buttons. */
+  private _renderReference(elementId: string | null, bo: any): void {
+    const ref = referenceOf(bo);
+
+    const block = document.createElement('div');
+    block.className = 'ub-prop-reference-bloc';
+    block.style.cssText = 'margin-top: 10px; border-top: 1px solid #eee; padding-top: 8px';
+
+    const caption = document.createElement('span');
+    caption.style.cssText = 'display: block; margin-bottom: 3px; color: #666';
+    caption.textContent = 'Référence';
+    block.appendChild(caption);
+
+    const value = document.createElement('div');
+    value.className = 'ub-prop-reference';
+    value.style.marginBottom = '6px';
+    value.textContent = ref
+      ? ref.cle + (ref.type ? ` (${ ref.type })` : '')
+      : '—';
+    block.appendChild(value);
+
+    const error = document.createElement('div');
+    error.className = 'ub-prop-erreur';
+    error.style.cssText = 'color: #b00020; margin-bottom: 6px; display: none';
+
+    const buttons = document.createElement('div');
+    buttons.style.cssText = 'display: flex; gap: 6px';
+
+    if (this._canAttach()) {
+      const attach = document.createElement('button');
+      attach.type = 'button';
+      attach.className = 'ub-prop-rattacher';
+      attach.textContent = 'Rattacher…';
+      attach.addEventListener('click', () => {
+        attach.disabled = true;
+        error.style.display = 'none';
+
+        this._onAttach(elementId)
+          .then(() => this._render())
+          .catch((raised) => {
+            attach.disabled = false;
+            error.textContent = String(raised?.message || raised);
+            error.style.display = '';
+          });
+      });
+
+      buttons.appendChild(attach);
+    }
+
+    if (ref) {
+      const detach = document.createElement('button');
+      detach.type = 'button';
+      detach.className = 'ub-prop-retirer';
+      detach.textContent = 'Retirer';
+      detach.addEventListener('click', () => {
+        try {
+          this._onDetach(elementId);
+          this._render();
+        } catch (raised: any) {
+          error.textContent = String(raised?.message || raised);
+          error.style.display = '';
+        }
+      });
+
+      buttons.appendChild(detach);
+    }
+
+    block.appendChild(error);
+    block.appendChild(buttons);
+    this._root.appendChild(block);
+  }
+
+  private _rootElement(): any {
+    try {
+      return this._viewer().get('canvas').getRootElement();
+    } catch {
+      return null;
+    }
   }
 
   private _title(type: string): HTMLElement {
