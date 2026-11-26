@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+
+    environment: pypi
+
+    permissions:
+      # trusted publishing (PyPI "trusted publisher" sur ce dépôt/workflow)
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the tag matches package.json
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "tag $TAG_VERSION != package.json $PKG_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Build the component and assemble the Python package
+        run: node scripts/build-python-package.mjs
+
+      - name: Build the distributions
+        run: |
+          python -m pip install --upgrade build
+          python -m build python/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/

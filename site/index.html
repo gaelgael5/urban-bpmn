@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>urban-bpmn — démonstration</title>
+  <style>
+    :root {
+      --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --bg: #f1f5f7;
+      --panel: #ffffff;
+      --border: #d3dde3;
+      --text: #0d1c26;
+      --muted: #4f626e;
+      --primary: #0b6e6a;
+      --primary-fg: #ffffff;
+    }
+
+    /* le raccord : les tokens du composant pointent sur ceux de l'hôte */
+    urban-bpmn {
+      --ub-police: var(--font-ui);
+      --ub-texte: var(--text);
+      --ub-fond: var(--panel);
+      --ub-bordure: var(--border);
+      --ub-accent: var(--primary);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font: 14px/1.5 var(--font-ui);
+      color: var(--text);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 16px;
+      margin: 0 12px 0 0;
+    }
+
+    button, label.bascule {
+      font: inherit;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel);
+      cursor: pointer;
+    }
+
+    button.primaire {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--primary-fg);
+    }
+
+    label.bascule {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    urban-bpmn {
+      flex: 1;
+      min-width: 0;
+    }
+
+    #panneau-xml {
+      flex: 0 0 420px;
+      display: none;
+      border-left: 1px solid var(--border);
+      background: var(--panel);
+      overflow: auto;
+      margin: 0;
+      padding: 12px;
+      font: 12px/1.45 var(--mono);
+      white-space: pre-wrap;
+    }
+
+    body.xml-visible #panneau-xml { display: block; }
+
+    #statut {
+      padding: 4px 14px;
+      color: var(--muted);
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      min-height: 26px;
+    }
+
+    dialog {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      font: inherit;
+      max-width: 360px;
+    }
+
+    dialog h2 { font-size: 15px; margin: 0 0 10px; }
+
+    dialog button.objet {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-bottom: 6px;
+    }
+
+    dialog .pied { text-align: right; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>urban-bpmn</h1>
+    <button id="charger-exemple" class="primaire">Processus d'exemple</button>
+    <button id="charger-import">Fichier d'un autre outil</button>
+    <label class="bascule"><input type="checkbox" id="lecture-seule"> Lecture seule</label>
+    <label class="bascule">Palette
+      <select id="palette">
+        <option value="atelier" selected>atelier</option>
+        <option value="complete">complète</option>
+      </select>
+    </label>
+    <button id="voir-xml">Afficher le XML</button>
+    <button id="telecharger-svg">Télécharger le SVG</button>
+  </header>
+
+  <main>
+    <urban-bpmn id="editeur"></urban-bpmn>
+    <pre id="panneau-xml"></pre>
+  </main>
+
+  <div id="statut"></div>
+
+  <dialog id="selecteur-hote">
+    <h2>Objets de l'hôte</h2>
+    <div id="selecteur-liste"></div>
+    <div class="pied"><button id="selecteur-annuler">Annuler</button></div>
+  </dialog>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

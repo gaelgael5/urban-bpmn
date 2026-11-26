@@ -1,0 +1,29 @@
+[build-system]
+requires = [ "hatchling" ]
+build-backend = "hatchling.build"
+
+[project]
+name = "urban-bpmn"
+dynamic = [ "version" ]
+description = "BPMN 2.0 process editor web component (<urban-bpmn>), served from FastAPI / Starlette"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [ { name = "urban-bpmn contributors" } ]
+keywords = [ "bpmn", "diagram", "web-component", "fastapi", "starlette" ]
+dependencies = [
+  "starlette>=0.37"
+]
+
+[project.urls]
+Repository = "https://github.com/gaelgael5/urban-bpmn"
+
+[tool.hatch.version]
+path = "urban_bpmn/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = [ "urban_bpmn" ]
+artifacts = [ "urban_bpmn/static/**" ]
+
+[tool.hatch.build.targets.sdist]
+include = [ "urban_bpmn/**", "README.md" ]
