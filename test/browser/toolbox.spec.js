@@ -86,7 +86,7 @@ describe('boîte à outils fournie par l\'hôte', () => {
         id: 'processus',
         libelle: 'Liés au processus',
         outils: [
-          { cle: 'ROL-VENDEUR', libelle: 'Vendeur', icone: '<svg viewBox="0 0 10 10"></svg>' },
+          { cle: 'ROL-VENDEUR', libelle: 'Vendeur', icone: '<svg viewBox="0 0 10 10"></svg>', description: 'Rôle : vend les produits.' },
           { cle: 'ROL-ACHETEUR', libelle: 'Acheteur' }
         ]
       },
@@ -117,6 +117,10 @@ describe('boîte à outils fournie par l\'hôte', () => {
     expect(tools[0].textContent).toContain('Vendeur');
     expect(tools[0].querySelector('.ub-outil-icone svg')).toBeTruthy();
     expect(tools[2].querySelector('.ub-outil-icone img')).toBeTruthy();
+
+    // la description s'affiche au survol ; à défaut, le libellé
+    expect(tools[0].title).toBe('Rôle : vend les produits.');
+    expect(tools[1].title).toBe('Acheteur');
 
     // la recherche filtre
     const search = container.querySelector('.ub-toolbox-recherche');

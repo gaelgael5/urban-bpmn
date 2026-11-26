@@ -23,16 +23,17 @@ import autreOutilXml from '../test/fixtures/bpmn-io-complex.bpmn?raw';
 interface ObjetHote extends ReferencedObject {
   genre: DropGenre;
   groupe: string;
+  description: string;
 }
 
 // the host space of the demonstration
 const OBJETS: ObjetHote[] = [
-  { cle: 'ROL-CLIENT', nom: 'Client', type: 'role', genre: 'couloir', groupe: 'Rôles' },
-  { cle: 'ROL-VENTES', nom: 'Service des ventes', type: 'role', genre: 'couloir', groupe: 'Rôles' },
-  { cle: 'OBJ-COMMANDE', nom: 'Commande', type: 'objet-metier', genre: 'objet-donnees', groupe: 'Objets métier' },
-  { cle: 'OBJ-FACTURE', nom: 'Facture', type: 'objet-metier', genre: 'objet-donnees', groupe: 'Objets métier' },
-  { cle: 'APP-BOUTIQUE', nom: 'Boutique en ligne', type: 'application', genre: 'participant', groupe: 'Applications' },
-  { cle: 'COL-VENTE-EN-LIGNE', nom: 'Vente en ligne', type: 'collaboration', genre: 'collaboration', groupe: 'Collaborations' }
+  { cle: 'ROL-CLIENT', nom: 'Client', type: 'role', genre: 'couloir', groupe: 'Rôles', description: 'Rôle : la personne qui passe la commande.' },
+  { cle: 'ROL-VENTES', nom: 'Service des ventes', type: 'role', genre: 'couloir', groupe: 'Rôles', description: 'Rôle : l\'équipe qui vérifie et traite les commandes.' },
+  { cle: 'OBJ-COMMANDE', nom: 'Commande', type: 'objet-metier', genre: 'objet-donnees', groupe: 'Objets métier', description: 'Objet métier : la commande et ses lignes.' },
+  { cle: 'OBJ-FACTURE', nom: 'Facture', type: 'objet-metier', genre: 'objet-donnees', groupe: 'Objets métier', description: 'Objet métier : la facture émise après expédition.' },
+  { cle: 'APP-BOUTIQUE', nom: 'Boutique en ligne', type: 'application', genre: 'participant', groupe: 'Applications', description: 'Application : le site marchand qui enregistre les commandes.' },
+  { cle: 'COL-VENTE-EN-LIGNE', nom: 'Vente en ligne', type: 'collaboration', genre: 'collaboration', groupe: 'Collaborations', description: 'Collaboration : la vente en ligne et ses participants.' }
 ];
 
 const ICONE = (couleur: string) =>
@@ -68,7 +69,8 @@ function toolbox(): ToolGroup[] {
     groupes.get(objet.groupe)!.outils.push({
       cle: objet.cle,
       libelle: objet.nom,
-      icone: ICONE(COULEURS[objet.groupe] || '#666')
+      icone: ICONE(COULEURS[objet.groupe] || '#666'),
+      description: objet.description
     });
   }
 

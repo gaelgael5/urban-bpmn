@@ -30,6 +30,22 @@ describe('<urban-bpmn>', () => {
     expect(customElements.get('urban-bpmn')).toBeTruthy();
   });
 
+  it('installe la police d\'icônes bpmn au niveau du document', async () => {
+    makeElement();
+
+    const style = document.getElementById('urban-bpmn-font');
+
+    expect(style).toBeTruthy();
+    expect(style.textContent).toContain('@font-face');
+    expect(style.textContent).toContain('bpmn');
+
+    // la police se charge réellement (les icônes ne sont plus des carrés)
+    const loaded = await document.fonts.load('12px bpmn');
+
+    expect(loaded.length).toBeGreaterThan(0);
+    expect(document.fonts.check('12px bpmn')).toBe(true);
+  });
+
   // critère 2 : page HTML sans framework
   it('affiche un processus et émet les événements, sans framework', async () => {
     const element = makeElement();
