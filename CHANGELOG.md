@@ -3,6 +3,16 @@
 Versionnage sémantique. Le paquet est publié sur PyPI
 (`pip install urban-bpmn==x.y.z`) à chaque étiquette `vx.y.z`.
 
+## 0.1.1 — non publié
+
+- Correction : la police d'icônes bpmn est installée au niveau du
+  document hôte (les navigateurs ignorent les `@font-face` déclarés
+  dans un shadow root) — la palette et le menu contextuel affichaient
+  des carrés vides.
+- Boîte à outils : un outil peut porter une `description`, affichée
+  au survol (à défaut, le libellé) ; la recherche filtre aussi sur la
+  description. Descriptions ajoutées à la page de démonstration.
+
 ## 0.1.0 — non publié
 
 Première version.

@@ -26,6 +26,45 @@ import type {
 
 import { UrbanBpmnEditor } from '../editor/UrbanBpmnEditor.ts';
 
+/**
+ * Browsers do not register `@font-face` rules declared inside a
+ * shadow root: the bpmn icon font must be installed once at document
+ * level, or every palette and context pad icon renders as an empty
+ * square. The icon *classes* stay in the shadow styles.
+ */
+function installBpmnFont(): void {
+  if (typeof document === 'undefined' ||
+      document.getElementById('urban-bpmn-font')) {
+    return;
+  }
+
+  // the bundler may turn the inline CSS into a lazy concatenation:
+  // settle it into a plain string before matching anything on it
+  const css = String(bpmnFontCss);
+
+  // keep only the embedded (data URI) source: the other blocks are
+  // IE / old-iOS fallbacks pointing at relative files that are not
+  // served next to the host page
+  const matches = css.match(/@font-face[^{]*\{[^}]*\}/g);
+  const fontFaces: string[] = [];
+
+  for (const rule of matches || []) {
+    if (rule.indexOf('data:') !== -1) {
+      fontFaces.push(rule);
+    }
+  }
+
+  if (!fontFaces.length) {
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = 'urban-bpmn-font';
+  style.textContent = fontFaces.join('\n');
+
+  document.head.appendChild(style);
+}
+
 const COMPONENT_CSS = `
 :host {
   display: block;
@@ -58,6 +97,8 @@ export class UrbanBpmnElement extends HTMLElement {
     if (this.shadowRoot) {
       return;
     }
+
+    installBpmnFont();
 
     const shadow = this.attachShadow({ mode: 'open' });
 

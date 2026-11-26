@@ -1,6 +1,6 @@
 {
   "name": "urban-bpmn",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "BPMN 2.0 process editor web component built on bpmn-js (bpmn.io).",
   "type": "module",
   "license": "MIT",

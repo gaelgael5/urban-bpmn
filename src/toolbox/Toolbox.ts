@@ -132,18 +132,21 @@ export class Toolbox {
         (group.outils || []).map((outil) => ({
           tool: { kind: 'host', cle: outil.cle } as ArmedTool,
           libelle: outil.libelle,
-          icone: outil.icone
+          icone: outil.icone,
+          description: outil.description
         })));
     }
   }
 
   private _renderGroup(
       libelle: string,
-      entries: { tool: ArmedTool, libelle: string, icone?: string }[]
+      entries: { tool: ArmedTool, libelle: string, icone?: string, description?: string }[]
   ): void {
 
     const visible = entries.filter((entry) =>
-      !this._filter || entry.libelle.toLowerCase().includes(this._filter));
+      !this._filter ||
+      entry.libelle.toLowerCase().includes(this._filter) ||
+      (entry.description || '').toLowerCase().includes(this._filter));
 
     if (!visible.length) {
       return;
@@ -163,7 +166,7 @@ export class Toolbox {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'ub-outil';
-      button.title = entry.libelle;
+      button.title = entry.description || entry.libelle;
       button.style.cssText = [
         'display: flex',
         'align-items: center',

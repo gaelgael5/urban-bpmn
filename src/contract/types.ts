@@ -96,6 +96,9 @@ export interface Tool {
 
   /** Icon provided by the host: an URL or inline SVG markup. */
   icone?: string;
+
+  /** Description shown when hovering the tool. */
+  description?: string;
 }
 
 /** A group of tools. */
