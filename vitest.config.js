@@ -6,6 +6,13 @@ import { playwright } from '@vitest/browser-playwright';
 const executablePath = process.env.CHROMIUM_EXECUTABLE_PATH || undefined;
 
 export default defineConfig({
+  optimizeDeps: {
+    include: [
+      'bpmn-js/lib/Modeler',
+      'bpmn-js/lib/NavigatedViewer',
+      'bpmn-moddle'
+    ]
+  },
   test: {
     projects: [
       {

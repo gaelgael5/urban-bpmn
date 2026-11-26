@@ -1,0 +1,26 @@
+{
+  "name": "Urban",
+  "uri": "https://github.com/gaelgael5/urban-bpmn/schema/1.0",
+  "prefix": "urban",
+  "xml": {
+    "tagAlias": "lowerCase"
+  },
+  "types": [
+    {
+      "name": "UrbanBound",
+      "extends": [ "bpmn:BaseElement" ],
+      "properties": [
+        {
+          "name": "cle",
+          "isAttr": true,
+          "type": "String"
+        },
+        {
+          "name": "type",
+          "isAttr": true,
+          "type": "String"
+        }
+      ]
+    }
+  ]
+}

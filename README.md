@@ -25,6 +25,50 @@ dependency, configures it and extends it.
 Standard **BPMN 2.0 XML**, diagram interchange (`bpmndi`) included, both as
 input and output. Files open in any BPMN tool.
 
+## Contract
+
+The full contract lives in the published TypeScript types
+([`src/contract/types.ts`](./src/contract/types.ts)); the facade is
+`UrbanBpmnEditor`. Summary:
+
+**Inputs.**
+`new UrbanBpmnEditor({ container, delegates?, readOnly?, palette? })`, then
+`load(xml?, { references? })`:
+
+- an empty (or missing) XML loads a new process with a start event; any
+  valid BPMN 2.0 XML is accepted, including exports from other tools;
+- `references` lists the host objects the process references
+  (`{ cle, nom, type }`): an element attached to a key displays — and
+  exports — the up-to-date `nom`, even when the XML carries an older one;
+- `readOnly` allows exploring (zoom, pan, click) but no modification;
+- `palette` picks `'atelier'` (default) or `'complete'`.
+
+**Delegates** (functions provided by the host, all optional — a missing
+delegate disables the interaction):
+
+| Delegate | Called | Returns |
+|----------|--------|---------|
+| `toolbox(context)` | to fill the host toolbox | `ToolGroup[]` (`{ cle, libelle, icone }` tools) |
+| `drop(cle)` | once per tool drop, with the key | `{ nom, type, genre, membres?, avertissement? }` — `genre` is the BPMN element to create: `participant`, `couloir`, `objet-donnees`, `stockage-donnees` or `collaboration` (then `membres` lists the participants to propose); `avertissement` is shown with an optional action |
+| `action(cle, action)` | once when the person clicks a warning's action | — |
+| `attach(context)` | to attach an existing element to a host object | `ReferencedObject` or `null` |
+
+**Outputs.**
+`save()` returns the current process as standard BPMN 2.0 XML (references
+included); `exportSvg()` returns an SVG image. Events (`on` / `off`):
+`changed` — exactly one per modification, none in read-only mode or during
+load; `selection` — `{ cle?, elementId, type }`, cleared as
+`{ elementId: undefined, type: null }`; `import.done` — `{ warnings }`.
+
+**Errors.** An invalid XML is refused (`load` rejects) with the
+bpmn-moddle message; import warnings are returned and emitted to the host.
+
+**References in the XML.** The attachment to host objects travels in two
+extension attributes on the BPMN element, under the namespace
+`https://github.com/gaelgael5/urban-bpmn/schema/1.0` (prefix `urban`):
+`urban:cle` (functional key) and `urban:type` (host type slug). Everything
+else is plain BPMN 2.0.
+
 ## Engine alignment with urban-archimate
 
 Both editors must run on the same diagram engine generation:

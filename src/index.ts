@@ -1,14 +1,15 @@
 /**
  * urban-bpmn — BPMN 2.0 process editor built on bpmn-js (bpmn.io).
  *
- * Foundation entry point: it exposes the up-to-date bpmn-js modeler and the
- * two helpers covering the round trip the backlog requires — load a standard
- * BPMN 2.0 XML (diagram interchange included), render it, export it back.
- * The full component contract (delegates, host toolbox, references) comes
- * with the next backlog items.
+ * Public entry: the component contract (types), the editor facade,
+ * and the low-level bpmn-js helpers of the foundation.
  */
 
 import BpmnModeler from 'bpmn-js/lib/Modeler';
+
+export * from './contract/types.ts';
+
+export { UrbanBpmnEditor, INITIAL_XML } from './editor/UrbanBpmnEditor.ts';
 
 export { BpmnModeler };
 
