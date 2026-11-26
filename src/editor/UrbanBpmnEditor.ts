@@ -18,6 +18,10 @@ import NavigatedViewer from 'bpmn-js/lib/NavigatedViewer';
 
 import urbanModdle from '../moddle/urban.json';
 
+import AtelierPaletteModule from '../palette/AtelierPaletteModule.ts';
+
+import { PropertyPanel } from '../properties/PropertyPanel.ts';
+
 import type {
   Avertissement,
   Delegates,
@@ -71,6 +75,8 @@ export class UrbanBpmnEditor {
   private _listeners = new Map<string, Set<Listener>>();
   private _importing = false;
   private _banner: HTMLElement | null = null;
+  private _canvasHost: HTMLElement;
+  private _panel: PropertyPanel | null = null;
 
   constructor(options: EditorOptions) {
     this._container = options.container;
@@ -78,12 +84,32 @@ export class UrbanBpmnEditor {
     this._readOnly = !!options.readOnly;
     this._palette = options.palette || 'atelier';
 
+    // layout: [ canvas | property panel ] inside the host container
+    this._container.classList.add('ub-editeur');
+    this._container.style.display = 'flex';
+
+    this._canvasHost = document.createElement('div');
+    this._canvasHost.className = 'ub-canvas';
+    this._canvasHost.style.cssText = 'flex: 1 1 auto; min-width: 0; height: 100%';
+    this._container.appendChild(this._canvasHost);
+
     const ViewerClass: any = this._readOnly ? NavigatedViewer : Modeler;
 
     this._viewer = new ViewerClass({
-      container: options.container,
+      container: this._canvasHost,
+      additionalModules:
+        !this._readOnly && this._palette === 'atelier'
+          ? [ AtelierPaletteModule ]
+          : [],
       moddleExtensions: { urban: urbanModdle }
     });
+
+    if (!this._readOnly) {
+      this._panel = new PropertyPanel({
+        parent: this._container,
+        getViewer: () => this._viewer
+      });
+    }
 
     const eventBus = this._viewer.get('eventBus');
 
@@ -111,11 +137,17 @@ export class UrbanBpmnEditor {
       eventBus.on('selection.changed', (event: any) => {
         const selected = event.newSelection && event.newSelection[0];
 
+        this._panel?.setElement(selected || null);
+
         if (selected) {
           this._emitSelection(selected);
         } else {
           this._emitSelectionCleared();
         }
+      });
+
+      eventBus.on('element.changed', (event: any) => {
+        this._panel?.refresh(event.element);
       });
     }
   }
@@ -258,7 +290,10 @@ export class UrbanBpmnEditor {
     this._banner?.remove();
     this._banner = null;
     this._listeners.clear();
+    this._panel?.destroy();
+    this._panel = null;
     this._viewer.destroy();
+    this._canvasHost.remove();
   }
 
   // -------------------------------------------------------------------------

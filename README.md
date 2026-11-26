@@ -43,6 +43,17 @@ The full contract lives in the published TypeScript types
 - `readOnly` allows exploring (zoom, pan, click) but no modification;
 - `palette` picks `'atelier'` (default) or `'complete'`.
 
+The **workshop palette** (`'atelier'`) proposes only the BPMN subset
+readable by business people: start / end events, message and timer
+intermediate events, task / user task / service task / manual task,
+sub-process, exclusive and parallel gateways, pool (lanes come with the
+pool's context pad), data object, data store, text annotation; flows are
+drawn with the connect tool as usual. A process created with the full
+palette still opens and edits without loss — elements outside the subset
+are simply not proposed for creation. The built-in **property panel**
+shows the selected element's name, documentation and — for a task — its
+type; the technical bpmn-js properties stay hidden.
+
 **Delegates** (functions provided by the host, all optional — a missing
 delegate disables the interaction):
 
